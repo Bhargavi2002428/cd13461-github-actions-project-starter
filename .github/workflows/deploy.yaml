@@ -102,8 +102,7 @@ jobs:
             ${{ runner.os }}-node-modules-
 
       - name: Install dependencies
-        if: steps.cache-node-modules.outputs.cache-hit != 'true'
-        run: npm ci --ignore-scripts --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
+        run: npm ci --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
 
       - name: Rebuild sharp for Linux
         run: npm rebuild sharp --platform=linux --arch=x64 --libc=glibc
