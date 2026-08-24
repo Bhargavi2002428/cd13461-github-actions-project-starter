@@ -28,11 +28,16 @@ permissions:
   contents: read
 
 jobs:
+
+  # =========================
+  # TEST JOB
+  # =========================
   test:
     name: test
     runs-on: ubuntu-latest
     permissions:
       contents: read
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -73,6 +78,10 @@ jobs:
             fi
           done
 
+
+  # =========================
+  # BUILD JOB
+  # =========================
   build:
     name: build
     needs: test
@@ -80,6 +89,7 @@ jobs:
     permissions:
       contents: read
       pages: write
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -92,15 +102,10 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Cache node_modules
-        id: cache-node-modules
-        uses: actions/cache@v4
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-node-modules-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-modules-
-
+      # IMPORTANT:
+      # Do not use --ignore-scripts here.
+      # Pagefind needs its installation script to download
+      # the required binary.
       - name: Install dependencies
         run: npm ci --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
 
@@ -122,6 +127,10 @@ jobs:
         with:
           path: _site
 
+
+  # =========================
+  # DEPLOY JOB
+  # =========================
   deploy:
     name: deploy
     needs: [test, build]
@@ -131,9 +140,11 @@ jobs:
       pages: write
       id-token: write
       issues: write
+
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+
     steps:
       - name: Download built site
         uses: actions/download-artifact@v4
@@ -155,7 +166,9 @@ jobs:
           else
             STATUS="failed"
           fi
+
           DATE=$(date +'%Y-%m-%d')
+
           gh issue create \
             --title "$DATE - Deployment: $STATUS" \
             --body "URL: ${{ steps.deployment.outputs.page_url }}"
