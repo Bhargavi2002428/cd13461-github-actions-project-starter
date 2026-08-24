@@ -105,6 +105,9 @@ jobs:
         if: steps.cache-node-modules.outputs.cache-hit != 'true'
         run: npm ci --ignore-scripts --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
 
+        name: Rebuild sharp for Linux
+        run: npm rebuild sharp --platform=linux --arch=x64 --libc=glibc
+        
       - name: Set PATH_PREFIX
         run: echo "PATH_PREFIX=/$(echo '${{ github.repository }}' | cut -d'/' -f2-)/" >> "$GITHUB_ENV"
 
