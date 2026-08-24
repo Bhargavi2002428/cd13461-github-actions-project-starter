@@ -112,3 +112,55 @@ jobs:
         run: |
           REPO_NAME="${{ github.repository }}"
           echo "PATH_PREFIX=/${REPO_NAME#*/}/" >> "$GITHUB_ENV"
+
+      - name: Build production site
+        run: npm run prod
+        env:
+          PATH_PREFIX: ${{ env.PATH_PREFIX }}
+
+      - name: Upload built site as artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    name: deploy
+    needs: [test, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+      issues: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Download built site
+        uses: actions/download-artifact@v4
+        with:
+          name: github-pages
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+
+      - name: Create deployment summary issue
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ steps.deployment.outcome }}" = "success" ]; then
+            STATUS="succeeded"
+          else
+            STATUS="failed"
+          fi
+          DATE=$(date +'%Y-%m-%d')
+          gh issue create \
+            --title "$DATE - Deployment: $STATUS" \
+            --body "URL: ${{ steps.deployment.outputs.page_url }}"
+
+      - name: Fail job if deployment failed
+        if: steps.deployment.outcome != 'success'
+        run: exit 1
