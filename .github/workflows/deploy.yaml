@@ -21,7 +21,7 @@ on:
         type: boolean
 
 concurrency:
-  group: ${{ github.workflow }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -102,10 +102,6 @@ jobs:
         with:
           node-version: '18'
 
-      # IMPORTANT:
-      # Do not use --ignore-scripts here.
-      # Pagefind needs its installation script to download
-      # the required binary.
       - name: Install dependencies
         run: npm ci --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
 
@@ -146,11 +142,6 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
-      - name: Download built site
-        uses: actions/download-artifact@v4
-        with:
-          name: github-pages
-
       - name: Deploy to GitHub Pages
         id: deployment
         continue-on-error: true
@@ -168,10 +159,15 @@ jobs:
           fi
 
           DATE=$(date +'%Y-%m-%d')
+          URL="${{ steps.deployment.outputs.page_url }}"
+          
+          if [ -z "$URL" ]; then
+            URL="N/A (Deployment failed)"
+          fi
 
           gh issue create \
-            --title "$DATE - Deployment: $STATUS" \
-            --body "URL: ${{ steps.deployment.outputs.page_url }}"
+            --title "$DATE - deployment: $STATUS" \
+            --body "URL: $URL"
 
       - name: Fail job if deployment failed
         if: steps.deployment.outcome != 'success'
