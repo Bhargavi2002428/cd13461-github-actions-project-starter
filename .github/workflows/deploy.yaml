@@ -13,6 +13,12 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force deployment (emergency)'
+        required: false
+        default: 'false'
+        type: boolean
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -34,7 +40,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '18'
           cache: 'npm'
 
       - name: Install dependencies
@@ -45,7 +51,7 @@ jobs:
 
       - name: Run URL Checker Script
         env:
-          URL_CHECKER_TIMEOUT: ${{ vars.URL_CHECKER_TIMEOUT }}
+          URL_CHECKER_TIMEOUT: ${{ vars.URL_CHECKER_TIMEOUT || '10' }}
         run: node script/url-checker.js -t $URL_CHECKER_TIMEOUT -d src/posts
 
   build:
@@ -61,7 +67,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '18'
           cache: 'npm'
 
       - name: Install dependencies
