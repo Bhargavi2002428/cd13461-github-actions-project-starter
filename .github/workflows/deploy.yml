@@ -68,15 +68,13 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Install dependencies and native binaries
-        run: |
-          npm install --legacy-peer-deps --omit=optional --ignore-scripts
-          npm install --platform=linux --arch=x64 sharp pagefind
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps --omit=optional --ignore-scripts
 
       - name: Build Static Pages
         env:
           PATH_PREFIX: /${{ github.event.repository.name }}/
-        run: npm run eleventy:prod
+        run: npx @11ty/eleventy --output=_site
 
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3
