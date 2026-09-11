@@ -71,7 +71,7 @@ jobs:
       - name: Install dependencies and sharp binary
         run: |
           npm ci --legacy-peer-deps --ignore-scripts
-          npm install --platform=linux --arch=x64 sharp
+          npm install --platform=linux --arch=x64 sharp @pagefind/linux-x64
 
       - name: Build Static Pages
         env:
