@@ -68,7 +68,7 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Install dependencies and sharp binary
+      - name: Install dependencies and native binaries
         run: |
           npm ci --legacy-peer-deps --ignore-scripts
           npm install --platform=linux --arch=x64 sharp @pagefind/linux-x64
