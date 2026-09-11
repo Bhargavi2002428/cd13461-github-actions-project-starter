@@ -68,10 +68,10 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Install dependencies
+      - name: Install dependencies and sharp binary
         run: |
           npm ci --legacy-peer-deps --ignore-scripts
-          npm install --no-save sharp @img/sharp-linux-x64
+          npm install --platform=linux --arch=x64 sharp
 
       - name: Build Static Pages
         env:
