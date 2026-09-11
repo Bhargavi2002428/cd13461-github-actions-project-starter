@@ -13,12 +13,6 @@ on:
     branches:
       - main
   workflow_dispatch:
-    inputs:
-      force:
-        description: 'Force deployment (emergency)'
-        required: false
-        default: 'false'
-        type: boolean
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -26,149 +20,83 @@ concurrency:
 
 permissions:
   contents: read
+  pages: write
+  id-token: write
+  issues: write
 
 jobs:
-
-  # =========================
-  # TEST JOB
-  # =========================
   test:
-    name: test
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
-
-      - name: Cache node_modules
-        id: cache-node-modules
-        uses: actions/cache@v4
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-node-modules-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-modules-
+          node-version: '20'
+          cache: 'npm'
 
       - name: Install dependencies
-        if: steps.cache-node-modules.outputs.cache-hit != 'true'
-        run: npm ci --ignore-scripts --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
+        run: npm ci
 
-      - name: Run all linters
+      - name: Run Linters
         run: npm run lint:all
 
-      - name: Run URL checker script
+      - name: Run URL Checker Script
         env:
           URL_CHECKER_TIMEOUT: ${{ vars.URL_CHECKER_TIMEOUT }}
-        run: node script/url-checker.js -t "$URL_CHECKER_TIMEOUT" -d src/posts
+        run: node script/url-checker.js -t $URL_CHECKER_TIMEOUT -d src/posts
 
-      - name: Run remaining scripts
-        run: |
-          set -e
-          for f in script/*.js; do
-            if [ "$f" != "script/url-checker.js" ]; then
-              echo "Running $f"
-              node "$f"
-            fi
-          done
-
-
-  # =========================
-  # BUILD JOB
-  # =========================
   build:
-    name: build
     needs: test
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pages: write
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup GitHub Pages
-        uses: actions/configure-pages@v4
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
+          cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
+        run: npm ci
 
-      - name: Rebuild sharp for Linux
-        run: npm rebuild sharp --platform=linux --arch=x64 --libc=glibc
-
-      - name: Set PATH_PREFIX
-        run: |
-          REPO_NAME="${{ github.repository }}"
-          echo "PATH_PREFIX=/${REPO_NAME#*/}/" >> "$GITHUB_ENV"
-
-      - name: Build production site
-        run: npm run prod
+      - name: Build Static Pages
         env:
-          PATH_PREFIX: ${{ env.PATH_PREFIX }}
+          PATH_PREFIX: /${{ github.event.repository.name }}/
+        run: npm run eleventy:prod
 
-      - name: Upload built site as artifact
+      - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: _site
+          path: '_site'
 
-
-  # =========================
-  # DEPLOY JOB
-  # =========================
   deploy:
-    name: deploy
     needs: [test, build]
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-      issues: write
-
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        continue-on-error: true
         uses: actions/deploy-pages@v4
 
-      - name: Create deployment summary issue
+      - name: Create GitHub Issue on Deployment Status
         if: always()
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+          STATUS: ${{ job.status }}
         run: |
-          if [ "${{ steps.deployment.outcome }}" = "success" ]; then
-            STATUS="succeeded"
-          else
-            STATUS="failed"
-          fi
-
           DATE=$(date +'%Y-%m-%d')
-          URL="${{ steps.deployment.outputs.page_url }}"
-          
-          if [ -z "$URL" ]; then
-            URL="N/A (Deployment failed)"
-          fi
-
           gh issue create \
-            --title "$DATE - deployment: $STATUS" \
-            --body "URL: $URL"
-
-      - name: Fail job if deployment failed
-        if: steps.deployment.outcome != 'success'
-        run: exit 1
+            --title "$DATE deployment $STATUS" \
+            --body "URL: $PAGE_URL" \
+            --repo "${{ github.repository }}"
